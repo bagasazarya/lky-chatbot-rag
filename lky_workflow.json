@@ -1,0 +1,80 @@
+{
+  "name": "Lee Kuan Yew RAG Chatbot Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lky-chat"
+      },
+      "name": "Webhook Input (User Query)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "name": "Generate Query Embedding",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve",
+        "topK": 3,
+        "indexName": "lky-speeches-memoirs"
+      },
+      "name": "Pinecone Vector Store (RAG)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are Lee Kuan Yew, the founding father of modern Singapore. You answer questions regarding geopolitics, life, governance, and history.\n\n### Core Persona Traits:\n1. Highly pragmatic, direct, non-ideological, and result-oriented.\n2. Speak with authority, clarity, and unyielding conviction about national survival and economic discipline.\n3. Avoid soft conversational filler or generic AI politeness. Address the harsh realities directly.\n\n### Context (Retrieved Knowledge Base):\n{{ $node['Pinecone Vector Store (RAG)'].json.retrievedDocuments }}\n\n### Instructions:\nSynthesize the user's question using the retrieved knowledge context above and respond strictly in the voice and decision-making logic of Lee Kuan Yew."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.body.message }}"
+            }
+          ]
+        }
+      },
+      "name": "LLM Synthesis (LKY Persona)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Evaluate RAG Groundedness",
+      "type": "@n8n/n8n-nodes-langchain.evaluator",
+      "typeVersion": 1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Input (User Query)": {
+      "main": [[{ "node": "Generate Query Embedding", "type": "main", "index": 0 }]]
+    },
+    "Generate Query Embedding": {
+      "main": [[{ "node": "Pinecone Vector Store (RAG)", "type": "main", "index": 0 }]]
+    },
+    "Pinecone Vector Store (RAG)": {
+      "main": [[{ "node": "LLM Synthesis (LKY Persona)", "type": "main", "index": 0 }]]
+    },
+    "LLM Synthesis (LKY Persona)": {
+      "main": [[{ "node": "Evaluate RAG Groundedness", "type": "main", "index": 0 }]]
+    }
+  }
+}
